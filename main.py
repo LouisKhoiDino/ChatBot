@@ -21,7 +21,7 @@ PROVIDERS = {
     "openrouter": {
         "base_url": "https://openrouter.ai/api/v1",
         "api_key_env": "OPENROUTER_API_KEY",
-        "model": "deepseek/deepseek-r1:free",
+        "model": "openrouter/free",
     },
 }
 
