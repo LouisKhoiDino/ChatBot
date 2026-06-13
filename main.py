@@ -1,10 +1,16 @@
 from openai import OpenAI
 import os
 import sys
+import time
 from openai import OpenAI
 from dotenv import load_dotenv
 
-# --- 1. Đọc cấu hình từ .env ---
+
+def clear_terminal():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+clear_terminal()
 load_dotenv()
 
 PROVIDERS = {
@@ -34,25 +40,22 @@ api_key = os.getenv(cfg["api_key_env"])
 if not api_key:
     sys.exit(f"Thiếu API key. Hãy đặt {cfg['api_key_env']} trong .env")
 
-# --- 2. Tạo client gọi API ---
 client = OpenAI(base_url=cfg["base_url"], api_key=api_key)
 
-# --- 3. Lịch sử hội thoại ---
 messages = [
-    {"role": "system", "content": "Bạn là trợ lý AI thân thiện. Trả lời ngắn gọn, dùng tiếng Việt."}
+    {"role": "system", "content": "Bạn là trợ lý AI thân thiện. Trả lời ngắn gọn, dùng tiếng anh."}
 ]
 
-# --- 4. Vòng lặp chat ---
 print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát.\n")
 
+count = 0
 while True:
-    user_input = input("Bạn: ").strip()
+    user_input = input("You: ").strip()
     if not user_input:
         continue
     if user_input.lower() in ("quit", "exit"):
-        print("Tạm biệt!")
+        print("Good Bye!")
         break
-
     messages.append({"role": "user", "content": user_input})
 
     try:
@@ -64,6 +67,13 @@ while True:
         reply = response.choices[0].message.content
         messages.append({"role": "assistant", "content": reply})
         print(f"\nBot: {reply}\n")
+        count += 1
+
+        print(f"Line Number: {count}")
+        if count >= 110:
+            messages = [messages[0]]
+            time.sleep(10)
+            clear_terminal()
     except Exception as e:
-        print(f"\n[Lỗi] {e}\n")
-        messages.pop()            
+        print(f"\n[Error] {e}\n")
+        messages.pop()
