@@ -41,12 +41,14 @@ if not api_key:
 
 client = OpenAI(base_url=cfg["base_url"], api_key=api_key)
 
-# Lưu trữ tin nhắn hệ thống gốc để dùng lại khi reset
 system_message = {
     "role": "system",
     "content": "Bạn là trợ lý AI thân thiện. Trả lời ngắn gọn, dùng tiếng anh.",
 }
 messages = [system_message]
+
+
+session_logs = []
 
 print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
 
@@ -56,20 +58,28 @@ while True:
     if not user_input:
         continue
 
-
     if user_input.lower() in ("quit", "exit"):
+        if session_logs:
+            try:
+                with open("chat_log.txt", "w", encoding="utf-8") as f:
+                    for log in session_logs:
+                        f.write(f"{log['user']} | Bot: {log['bot']}\n")
+                print("\n[Hệ thống] Đã lưu lịch sử hội thoại vào file 'chat_log.txt'.")
+            except Exception as e:
+                print(f"\n[Error] Không thể ghi file: {e}")
+        else:
+            print("\n[Hệ thống] Không có hội thoại nào để lưu.")
+            
         print("Good Bye!")
         break
 
-
+    
     if user_input.lower() in ("clear", "cls"):
-        messages = [system_message]  
+        messages = [system_message]
         count = 0  
         clear_terminal()
-        print(
-            f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n"
-        )
-        print("[System] Chat history succesfully deleted\n")
+        print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
+        print("[Hệ thống] Đã xoá lịch sử trò chuyện trên màn hình.\n")
         continue
 
     messages.append({"role": "user", "content": user_input})
@@ -83,14 +93,22 @@ while True:
         reply = response.choices[0].message.content
         messages.append({"role": "assistant", "content": reply})
         print(f"\nBot: {reply}\n")
-        count += 1
+        
+       
+        clean_user = user_input.replace("\n", " ")
+        clean_reply = reply.replace("\n", " ")
+        session_logs.append({"user": clean_user, "bot": clean_reply})
 
-        print(f"Line Number: {count}")
+        count += 1
+        print(f"--- Số lượt hội thoại đã thực hiện: {count} ---\n")
+
         if count >= 110:
+            print("[Hệ thống] Đạt giới hạn 110 lượt. Tự động reset bộ nhớ chat sau 10 giây...")
             messages = [system_message]
-            count = 0  # Đảm bảo reset cả count khi đạt giới hạn 110
+            count = 0  
             time.sleep(10)
             clear_terminal()
+            print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
     except Exception as e:
         print(f"\n[Error] {e}\n")
         messages.pop()
