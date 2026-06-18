@@ -1,13 +1,12 @@
-from openai import OpenAI
 import os
 import sys
 import time
-from openai import OpenAI
 from dotenv import load_dotenv
+from openai import OpenAI
 
 
 def clear_terminal():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    os.system("cls" if os.name == "nt" else "clear")
 
 
 clear_terminal()
@@ -42,20 +41,37 @@ if not api_key:
 
 client = OpenAI(base_url=cfg["base_url"], api_key=api_key)
 
-messages = [
-    {"role": "system", "content": "Bạn là trợ lý AI thân thiện. Trả lời ngắn gọn, dùng tiếng anh."}
-]
+# Lưu trữ tin nhắn hệ thống gốc để dùng lại khi reset
+system_message = {
+    "role": "system",
+    "content": "Bạn là trợ lý AI thân thiện. Trả lời ngắn gọn, dùng tiếng anh.",
+}
+messages = [system_message]
 
-print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát.\n")
+print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
 
 count = 0
 while True:
     user_input = input("You: ").strip()
     if not user_input:
         continue
+
+
     if user_input.lower() in ("quit", "exit"):
         print("Good Bye!")
         break
+
+
+    if user_input.lower() in ("clear", "cls"):
+        messages = [system_message]  
+        count = 0  
+        clear_terminal()
+        print(
+            f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n"
+        )
+        print("[System] Chat history succesfully deleted\n")
+        continue
+
     messages.append({"role": "user", "content": user_input})
 
     try:
@@ -71,7 +87,8 @@ while True:
 
         print(f"Line Number: {count}")
         if count >= 110:
-            messages = [messages[0]]
+            messages = [system_message]
+            count = 0  # Đảm bảo reset cả count khi đạt giới hạn 110
             time.sleep(10)
             clear_terminal()
     except Exception as e:
