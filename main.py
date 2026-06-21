@@ -3,7 +3,18 @@ import sys
 import time
 from dotenv import load_dotenv
 from openai import OpenAI
+import threading 
+import itertools
 
+def thinking_animation(stop_event):
+    dots = itertools.cycle([".", "..", "...", "....", "....."])
+    while not stop_event.is_set():
+        sys.stdout.write(f"\rBot is thinking {next(dots)}   ")
+        sys.stdout.flush()
+        if stop_event.wait(0.5):
+            break
+    sys.stdout.write("\r" + " " * 30 + "\r")
+    sys.stdout.flush()
 
 def clear_terminal():
     os.system("cls" if os.name == "nt" else "clear")
@@ -32,25 +43,25 @@ PROVIDERS = {
 
 provider = os.getenv("PROVIDER", "groq")
 if provider not in PROVIDERS:
-    sys.exit(f"Provider không hợp lệ: {provider}")
+    sys.exit(f"Invalid provider: {provider}")
 
 cfg = PROVIDERS[provider]
 api_key = os.getenv(cfg["api_key_env"])
 if not api_key:
-    sys.exit(f"Thiếu API key. Hãy đặt {cfg['api_key_env']} trong .env")
+    sys.exit(f"An API key is missing. Pls put an API key {cfg['api_key_env']}in .env")
 
 client = OpenAI(base_url=cfg["base_url"], api_key=api_key)
 
 system_message = {
     "role": "system",
-    "content": "Bạn là trợ lý AI thân thiện. Trả lời ngắn gọn, dùng tiếng anh.",
+    "content": "Bạn là trợ lý AI thân thiện. Trả lời đúng sự thật, dùng tiếng anh.",
 }
 messages = [system_message]
 
 
 session_logs = []
 
-print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
+print(f"Chatbot AI ({provider} / {cfg['model']}). Type clear to exit, type \n")
 
 count = 0
 while True:
@@ -64,11 +75,11 @@ while True:
                 with open("chat_log.txt", "w", encoding="utf-8") as f:
                     for log in session_logs:
                         f.write(f"{log['user']} | Bot: {log['bot']}\n")
-                print("\n[Hệ thống] Đã lưu lịch sử hội thoại vào file 'chat_log.txt'.")
+                print("\n[System] Memorized messages in file 'chat_log.txt'.")
             except Exception as e:
-                print(f"\n[Error] Không thể ghi file: {e}")
+                print(f"\n[System] Cannot write file: {e}")
         else:
-            print("\n[Hệ thống] Không có hội thoại nào để lưu.")
+            print("\n[System] No messages to memorize")
             
         print("Good Bye!")
         break
@@ -78,11 +89,15 @@ while True:
         messages = [system_message]
         count = 0  
         clear_terminal()
-        print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
-        print("[Hệ thống] Đã xoá lịch sử trò chuyện trên màn hình.\n")
+        print(f"Chatbot AI ({provider} / {cfg['model']}). Type 'quit' to exit, 'clear' to delete history.\n")
+        print("[System] History deleted.\n")
         continue
 
     messages.append({"role": "user", "content": user_input})
+
+    stop = threading.Event()
+    t = threading.Thread(target=thinking_animation, args=(stop,), daemon=True)
+    t.start()
 
     try:
         response = client.chat.completions.create(
@@ -92,23 +107,37 @@ while True:
         )
         reply = response.choices[0].message.content
         messages.append({"role": "assistant", "content": reply})
-        print(f"\nBot: {reply}\n")
+        
         
        
         clean_user = user_input.replace("\n", " ")
         clean_reply = reply.replace("\n", " ")
         session_logs.append({"user": clean_user, "bot": clean_reply})
 
+        
+    except Exception as e:
+       
+        reply = None
+        messages.pop()
+        error = str(e)
+    finally:
+        stop.set()
+        t.join()
+        
+    if reply is not None:
         count += 1
-        print(f"--- Số lượt hội thoại đã thực hiện: {count} ---\n")
+        
 
         if count >= 110:
-            print("[Hệ thống] Đạt giới hạn 110 lượt. Tự động reset bộ nhớ chat sau 10 giây...")
+            print("[System] Reached limit of 110 messages. Auto-reset in the next 10 seconds")
             messages = [system_message]
             count = 0  
             time.sleep(10)
             clear_terminal()
-            print(f"Chatbot AI ({provider} / {cfg['model']}). Gõ 'quit' để thoát, 'clear' để xoá lịch sử.\n")
-    except Exception as e:
-        print(f"\n[Error] {e}\n")
-        messages.pop()
+            print(f"Chatbot AI ({provider} / {cfg['model']}). Type 'quit' to exit, 'clear' to delete history\n")
+        print(f"Bot: {reply}\n")
+        
+        print(f"Chat completed: {count}")
+        
+    else:
+        print(f"[Error] {error}\n")
